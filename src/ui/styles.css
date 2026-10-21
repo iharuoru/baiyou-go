@@ -1,0 +1,2499 @@
+:root {
+  /* ページ: 宇宙。アクセントはパステルのネオン (水色・ピンク) */
+  --bg: #070b1e;
+  --text: #e8edff;
+  --muted: #8f9bc9;
+  --pink: #ff8fc8;
+  /* 盤: 戦艦のモニター */
+  --screen-center: #16204a;
+  --screen-edge: #060a1f;
+  --neon: #5fe8ff;
+  /* スライム: 先手 (コードでは black) は紫、後手 (white) は緑 */
+  --black-body: #9b5cff;
+  --black-edge: #6431c9;
+  --white-body: #3fd27c;
+  --white-edge: #178f4b;
+  --ally: #ffd84a;
+  --enemy: #ff6fd8;
+  --danger: #ff4f79;
+  font-family: "Hiragino Maru Gothic ProN", "M PLUS Rounded 1c", "Hiragino Sans", "Noto Sans JP",
+    system-ui, sans-serif;
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--bg);
+  /* 星 (小さな点を 2 種類の間隔で敷く) と、ぼんやりした星雲 */
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+    radial-gradient(1px 1px at 90px 120px, #cfe8ff, transparent),
+    radial-gradient(1.5px 1.5px at 150px 60px, #fff, transparent),
+    radial-gradient(1px 1px at 60px 170px, #ffd6ec, transparent),
+    radial-gradient(ellipse 60% 40% at 15% 10%, rgba(120, 80, 255, 0.25), transparent),
+    radial-gradient(ellipse 50% 40% at 90% 85%, rgba(60, 140, 255, 0.16), transparent),
+    radial-gradient(ellipse 70% 50% at 50% 50%, rgba(40, 90, 200, 0.18), transparent);
+  background-size: 200px 200px, 200px 200px, 200px 200px, 200px 200px, 100% 100%, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+/* 対局画面: 縦 1 列で、盤を主役にする */
+.game {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 12px 16px 24px;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.status-bar .captures {
+  margin-left: auto;
+}
+
+/* 最初の画面に戻るボタン: 上の行の左端に、戻る記号だけ */
+.home-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  line-height: 0;
+}
+
+.board {
+  width: 100%;
+  display: block;
+  user-select: none;
+  /* 2 回タップで打つので、ダブルタップでの拡大を止める */
+  touch-action: manipulation;
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px rgba(95, 232, 255, 0.35), 0 0 30px rgba(95, 232, 255, 0.18);
+}
+
+.screen {
+  fill: url(#screen-glow);
+}
+
+.screen-center {
+  stop-color: var(--screen-center);
+}
+
+.screen-edge {
+  stop-color: var(--screen-edge);
+}
+
+.space-star {
+  fill: #fff;
+  opacity: 0.55;
+}
+
+.screen-frame {
+  fill: none;
+  stroke: var(--neon);
+  stroke-opacity: 0.35;
+  stroke-width: 1.5;
+}
+
+.screen-corner {
+  fill: none;
+  stroke: var(--neon);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.board-line line {
+  stroke: var(--neon);
+  stroke-opacity: 0.45;
+  stroke-width: 1.2;
+}
+
+/* 格子の光: 太い半透明の線を下に重ねる */
+.board-glow line {
+  stroke: var(--neon);
+  stroke-opacity: 0.1;
+  stroke-width: 5;
+}
+
+.star {
+  fill: var(--neon);
+  opacity: 0.8;
+}
+
+.coord text {
+  fill: var(--neon);
+  opacity: 0.6;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.screen-overlay {
+  pointer-events: none;
+}
+
+.scanline {
+  fill: #fff;
+  opacity: 0.035;
+}
+
+.sweep-clear {
+  stop-color: var(--neon);
+  stop-opacity: 0;
+}
+
+.sweep-light {
+  stop-color: var(--neon);
+  stop-opacity: 0.12;
+}
+
+.sweep {
+  animation: sweep 6s linear infinite;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateY(-12%);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+.hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+/* 呼吸点の触覚: スライムの縁から呼吸点へ、S 字に曲がって伸びる。味方と敵で色を変え、ゆらゆら揺らす */
+.feeler {
+  transform-box: view-box;
+  animation: sway 2.4s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.feeler-stalk {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* pathLength = 1 なので、dashoffset 1 → 0 で根元から先へ描き伸ばせる */
+  stroke-dasharray: 1;
+}
+
+.feeler-tip {
+  fill: #fff;
+  stroke-width: 2.5;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* 結界の口 (Mouth.tsx): 色の唇に暗い縁とつや、暗い穴と舌。穴がゆっくり開閉して息をする */
+.mouth-lip {
+  fill: currentColor;
+  stroke: color-mix(in srgb, currentColor 45%, #3a0820);
+}
+
+.mouth-hole {
+  fill: #2a0614;
+  stroke: color-mix(in srgb, currentColor 35%, #3a0820);
+  stroke-width: 0.8;
+}
+
+.mouth-tongue {
+  fill: #c8336a;
+  stroke: none;
+}
+
+.mouth-tooth {
+  fill: #fff6e8;
+  stroke: none;
+}
+
+.mouth-shine {
+  fill: #fff;
+  opacity: 0.55;
+  stroke: none;
+}
+
+.mouth-open {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mouth-breathe 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes mouth-breathe {
+  from {
+    transform: scale(0.9, 0.2);
+  }
+  to {
+    transform: scale(1, 1);
+  }
+}
+
+/* 大きな口 (本当の眼) はゆっくり深く息をする */
+.mouth.big .mouth-open {
+  animation-duration: 2.8s;
+}
+
+
+/* 危険度: 塞がれると取られる触覚ほど太く、速くもがき、先端が塗りつぶされる */
+.feeler.danger-0 {
+  animation-duration: 0.6s;
+}
+
+.feeler.danger-0 .feeler-stalk {
+  stroke-width: 5;
+}
+
+.feeler.danger-0 .feeler-tip {
+  fill: currentColor;
+}
+
+.feeler.danger-1 {
+  animation-duration: 1.3s;
+}
+
+.feeler.danger-1 .feeler-stalk {
+  stroke-width: 3.6;
+}
+
+.feeler.danger-2 .feeler-stalk {
+  stroke-width: 2.6;
+}
+
+.feeler.danger-3 .feeler-stalk {
+  stroke-width: 2;
+}
+
+.feeler.ally {
+  color: var(--ally);
+}
+
+.feeler.enemy {
+  color: var(--enemy);
+}
+
+.feeler.ally > * {
+  stroke: var(--ally);
+}
+
+.feeler.enemy > * {
+  stroke: var(--enemy);
+}
+
+/* 置く前の予告: 置いたら生える触覚は半透明の破線、なくなる触覚は薄い破線で見せる */
+.feeler.ghost {
+  opacity: 0.8;
+}
+
+.feeler.ghost .feeler-stalk {
+  stroke-dasharray: 0.14 0.1;
+}
+
+.feeler.lost {
+  opacity: 0.5;
+}
+
+.feeler.lost .feeler-stalk {
+  stroke-dasharray: 0.08 0.12;
+}
+
+/* 今打った石の触覚: 着地の後、根元からぬるっと伸び、伸びきってから先端がぷくっと出る */
+.feeler.sprout .feeler-stalk {
+  animation: feeler-grow 1.4s cubic-bezier(0.33, 0, 0.15, 1) var(--grow-delay) backwards;
+}
+
+.feeler.sprout .feeler-tip {
+  animation: feeler-tip-in 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) calc(var(--grow-delay) + 1.1s) backwards;
+}
+
+@keyframes feeler-grow {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes feeler-tip-in {
+  from {
+    transform: scale(0);
+  }
+}
+
+/* 打った交点へ伸びていた、となりの石の触覚: 着地に合わせて先端がしぼみ、根元へ引っ込む */
+.feeler.retract .feeler-tip {
+  animation: feeler-tip-out 0.35s ease-in 0.3s forwards;
+}
+
+.feeler.retract .feeler-stalk {
+  animation: feeler-shrink 1s cubic-bezier(0.5, 0, 0.75, 0) 0.45s forwards;
+}
+
+@keyframes feeler-tip-out {
+  to {
+    transform: scale(0);
+  }
+}
+
+@keyframes feeler-shrink {
+  to {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes sway {
+  from {
+    transform: rotate(-7deg);
+  }
+  to {
+    transform: rotate(7deg);
+  }
+}
+
+.forbidden line {
+  stroke: var(--danger);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+
+/* スライムの本体 (SlimeLayer)。色は fill と橋の stroke の両方に付ける */
+/* 円・くびれ・2×2 の四角を同じ色で塗り、重なりで 1 つの形に見せる */
+.slime > * {
+  stroke: none;
+}
+
+/* スライムの色: 色ごとの本体 (--body) と輪郭 (--edge)。陣地の粘液は --strength で淡くする */
+:is(.team, .drop-marker).black {
+  --body: var(--black-body);
+  --edge: var(--black-edge);
+}
+
+:is(.team, .drop-marker).white {
+  --body: var(--white-body);
+  --edge: var(--white-edge);
+}
+
+.slime.edge {
+  fill: color-mix(in srgb, var(--edge) var(--strength), #fff);
+}
+
+.slime.body {
+  fill: color-mix(in srgb, var(--body) var(--strength), #fff);
+}
+
+/* 石の顔: つや、直前の手の印 */
+.stone-face {
+  pointer-events: none;
+}
+
+.shine {
+  fill: #fff;
+  opacity: 0.55;
+}
+
+/* 色の濃さ。陣地の粘液 (.team.territory) だけ淡くする */
+.team {
+  --strength: 100%;
+}
+
+.doomed-ring {
+  fill: none;
+  stroke: var(--danger);
+  stroke-width: 3;
+  stroke-dasharray: 5 3;
+}
+
+/* 直前の手の印。味方の触覚 (黄色) と紛れないよう白にする */
+.last-mark {
+  fill: #fff;
+  stroke: var(--neon);
+  stroke-width: 1.5;
+}
+
+/* 落下地点のマーカー: 手番の色の、回る破線の輪と 4 方向の目盛り */
+.drop-marker {
+  pointer-events: none;
+}
+
+.marker-ring {
+  fill: color-mix(in srgb, var(--body) 18%, transparent);
+  stroke: var(--body);
+  stroke-width: 2.5;
+  stroke-dasharray: 7 5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: marker-spin 4s linear infinite;
+}
+
+.marker-dot {
+  fill: var(--body);
+}
+
+.marker-tick {
+  stroke: var(--body);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  animation: marker-blink 1s ease-in-out infinite alternate;
+}
+
+@keyframes marker-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes marker-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+
+/* 置いた石: 上から落ちて、つぶれて弾み、となりの石へ橋が伸びる */
+.drop {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: drop 0.9s ease-in both;
+}
+
+@keyframes drop {
+  0% {
+    transform: translateY(-90px) scale(0.85, 1.15);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(0) scale(1.25, 0.75);
+    animation-timing-function: ease-out;
+  }
+  72% {
+    transform: translateY(-6px) scale(0.92, 1.08);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* 待機中のうねうね: 石ごとに伸び縮みし、塊全体がうねって見える。くびれとの継ぎ目が見えない程度の幅にする */
+.slime .blob {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wobble 2.6s ease-in-out infinite alternate;
+}
+
+/* 今打った石は、落下 (0.9s、SlimeLayer.tsx の DROP_SECONDS と揃える) の後にうねうねを始める */
+.slime .blob.drop {
+  transform-origin: 50% 100%;
+  animation:
+    drop 0.9s ease-in backwards,
+    wobble 2.6s ease-in-out infinite alternate;
+}
+
+@keyframes wobble {
+  from {
+    transform: scale(1.04, 0.96);
+  }
+  to {
+    transform: scale(0.96, 1.04);
+  }
+}
+
+/* つながっている石は、つなぎとの継ぎ目に段差が出ないよう小さく揺らす */
+.slime .blob.linked {
+  animation-name: wobble-linked;
+}
+
+.slime .blob.linked.drop {
+  animation-name: drop, wobble-linked;
+}
+
+@keyframes wobble-linked {
+  from {
+    transform: scale(1.012, 0.988);
+  }
+  to {
+    transform: scale(0.988, 1.012);
+  }
+}
+
+/* 取られた石: 着地を待ってから、取った側の石へ吸い込まれて消える */
+/*
+ * 取られた生命体の吸収 (CaptureAbsorb): 置いた石の着地の後 (--capture-at)、体がはじけて粒に散り、
+ * 囲んでいた相手の触覚が伸びてきて、粒を相手の体へ引き込み、縮んで消える。触覚・粒は同じ長さ (2.2 秒) で揃える
+ */
+.capture-absorb {
+  --capture-at: 0.45s;
+  pointer-events: none;
+}
+
+.capture-burst {
+  fill: var(--body);
+  stroke: var(--edge);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: capture-burst 0.35s ease-out var(--capture-at) both;
+}
+
+@keyframes capture-burst {
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+
+.capture-bit {
+  fill: var(--body);
+  stroke: var(--edge);
+  stroke-width: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: capture-bit 2.2s cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+/* はじけて散り、触覚が届くまで漂い、触覚に沿って相手の体へ吸い込まれる */
+@keyframes capture-bit {
+  0% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  20% {
+    transform: translate(var(--sx), var(--sy)) scale(1);
+  }
+  58% {
+    transform: translate(calc(var(--sx) * 0.8), calc(var(--sy) * 0.8)) scale(0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(0.2);
+    opacity: 0;
+  }
+}
+
+.capture-feeler {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  animation: capture-reach 2.2s ease-in-out var(--capture-at) both;
+}
+
+.capture-feelers.ally .capture-feeler,
+.capture-feelers.ally .capture-tip {
+  stroke: var(--ally);
+}
+
+.capture-feelers.enemy .capture-feeler,
+.capture-feelers.enemy .capture-tip {
+  stroke: var(--enemy);
+}
+
+/* 根元から伸びて取られた体の中心に届き、粒を引き込みながら根元へ縮む */
+@keyframes capture-reach {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  30%,
+  58% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 1;
+  }
+}
+
+.capture-tip {
+  fill: #fff;
+  stroke-width: 2.5;
+  animation: capture-tip 2.2s ease-in-out var(--capture-at) both;
+}
+
+@keyframes capture-tip {
+  0%,
+  26% {
+    transform: none;
+    opacity: 0;
+  }
+  32%,
+  58% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--rx), var(--ry));
+    opacity: 0;
+  }
+}
+
+.stretch {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: stretch 1.2s ease-out both;
+}
+
+@keyframes stretch {
+  0%,
+  45% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drop,
+  .stretch,
+  .feeler,
+  .feeler.straining,
+  .feeler.straining .feeler-tip,
+  .feeler.sprout .feeler-stalk,
+  .feeler.sprout .feeler-tip,
+  .sweep,
+  .marker-ring,
+  .marker-tick,
+  .slime .blob,
+  .slime .blob.drop,
+  .slime .blob.linked,
+  .slime .blob.linked.drop {
+    animation: none;
+  }
+
+  .capture-absorb,
+  .feeler.retract {
+    display: none;
+  }
+}
+
+.turn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+}
+
+.captures {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.chip {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid;
+}
+
+.chip.small {
+  width: 14px;
+  height: 14px;
+}
+
+.chip.black {
+  background: var(--black-body);
+  border-color: var(--black-edge);
+}
+
+.chip.white {
+  background: var(--white-body);
+  border-color: var(--white-edge);
+}
+
+/* 見込みの計器: 盤の外に、紫と緑の見込みの合計と、その割合の帯 */
+.influence-readout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.readout-label {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--neon);
+}
+
+.readout-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.readout-value.black {
+  color: var(--black-body);
+}
+
+.readout-value.white {
+  color: var(--white-body);
+}
+
+/* 割合の帯: 左から紫、残りが緑。液体が入れ替わるのに合わせてゆっくり動く */
+.readout-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--white-body);
+  box-shadow: 0 0 8px rgba(95, 232, 255, 0.25);
+  overflow: hidden;
+}
+
+.readout-bar::before {
+  content: "";
+  display: block;
+  height: 100%;
+  width: calc(var(--share) * 100%);
+  background: var(--black-body);
+  transition: width var(--seep) ease-in-out var(--seep-delay);
+}
+
+/* 実験のログ: ターミナルのような画面。出来事が 1 行ずつ積み重なり、下の入力行に今の案内とカーソル */
+.experiment-log {
+  margin-top: 14px;
+  border: 1px solid rgba(95, 232, 255, 0.3);
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(0deg, rgba(95, 232, 255, 0.04) 0 1px, transparent 1px 3px),
+    rgba(2, 6, 18, 0.92);
+  box-shadow:
+    inset 0 0 24px rgba(95, 232, 255, 0.08),
+    0 0 14px rgba(95, 232, 255, 0.12);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.log-title {
+  padding: 3px 10px;
+  border-bottom: 1px solid rgba(95, 232, 255, 0.2);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--neon);
+  opacity: 0.8;
+}
+
+.log-body {
+  height: 6.4em;
+  overflow-y: auto;
+  padding: 4px 10px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(95, 232, 255, 0.4) transparent;
+}
+
+.log-line {
+  margin: 0;
+  color: rgba(190, 240, 255, 0.78);
+  animation: log-type 0.4s steps(8, end) both;
+}
+
+.log-line.warning {
+  color: var(--danger);
+}
+
+.log-turn {
+  color: var(--neon);
+  opacity: 0.55;
+}
+
+/* 新しい行は、左から打ち込まれるように現れる */
+@keyframes log-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.log-prompt {
+  margin: 0;
+  padding: 4px 10px 6px;
+  color: var(--neon);
+  min-height: 1.6em;
+}
+
+.log-caret {
+  opacity: 0.7;
+}
+
+.log-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.1em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  background: var(--neon);
+  animation: log-blink 1s steps(1, end) infinite;
+}
+
+@keyframes log-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.controls button {
+  white-space: nowrap;
+}
+
+/* 宇宙戦艦の計器のボタン: 濃い紺のガラスに、ネオンの水色の細い縁。等幅の文字を少し開ける */
+button,
+.post-button {
+  display: inline-block;
+  font: inherit;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  padding: 7px 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(95, 232, 255, 0.55);
+  background: linear-gradient(180deg, rgba(20, 40, 86, 0.85), rgba(8, 16, 42, 0.9));
+  color: var(--text);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(95, 232, 255, 0.25),
+    0 0 8px rgba(95, 232, 255, 0.18);
+  transition: background 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+/* タッチ端末では hover の色が押した後も残るので、マウスの時だけ付ける */
+@media (hover: hover) {
+  button:hover:not(:disabled),
+  .post-button:hover {
+    border-color: var(--neon);
+    box-shadow:
+      inset 0 1px 0 rgba(95, 232, 255, 0.35),
+      0 0 14px rgba(95, 232, 255, 0.45);
+  }
+}
+
+button:active:not(:disabled),
+.post-button:active {
+  background: rgba(95, 232, 255, 0.18);
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* 選んでいるボタン: 水色に点灯する */
+button.selected {
+  border-color: var(--neon);
+  background: linear-gradient(180deg, rgba(95, 232, 255, 0.38), rgba(95, 232, 255, 0.16));
+  color: #fff;
+  box-shadow:
+    inset 0 0 10px rgba(95, 232, 255, 0.35),
+    0 0 14px rgba(95, 232, 255, 0.5);
+}
+
+/* スタート画面 */
+.start {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.start h1 {
+  margin: 0;
+  font-size: 44px;
+  letter-spacing: 0.12em;
+  color: #e6fbff;
+  text-shadow:
+    0 0 6px rgba(95, 232, 255, 0.9),
+    0 0 18px rgba(95, 232, 255, 0.6),
+    0 0 36px rgba(60, 140, 255, 0.5);
+}
+
+/* 実験の目的: タイトルの下に、何をする実験か */
+.purpose {
+  margin: 14px auto 28px;
+  max-width: 440px;
+}
+
+.purpose-label,
+.setup-title {
+  margin: 0 0 6px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--neon);
+}
+
+.purpose p {
+  margin: 0;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+/* 今回の実験: 選択と実験開始をまとめた計器のパネル (枠は .rules と同じ) */
+.setup-panel {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 16px 16px 22px;
+}
+
+.setup-title {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(95, 232, 255, 0.25);
+  font-size: 14px;
+}
+
+.choice {
+  margin-bottom: 20px;
+}
+
+.choice-label {
+  display: block;
+  margin-bottom: 8px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: var(--neon);
+  opacity: 0.85;
+}
+
+.choice-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.start-button {
+  margin-top: 16px;
+  padding: 12px 56px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  border: none;
+  border-radius: 0;
+  /* 角を斜めに切った、点灯したパネル */
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  background: linear-gradient(180deg, #8ff3ff, #3bc6ea);
+  color: #04122e;
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  .start-button:hover:not(:disabled) {
+    background: linear-gradient(180deg, #b8f8ff, #5fd6f3);
+    box-shadow: none;
+  }
+}
+
+.rules {
+  margin-top: 36px;
+  text-align: left;
+  padding: 12px 16px;
+}
+
+/* 実験方法と観察結果の欄は、間を詰めて並べる */
+.rules + .rules {
+  margin-top: 12px;
+}
+
+/* 計器のパネル: 濃い紺のガラスに細い走査線、四隅に盤と同じ L 字の括弧 */
+.rules,
+.setup-panel,
+.result-panel,
+.post-modal {
+  border: 1px solid rgba(95, 232, 255, 0.25);
+  border-radius: 4px;
+  background:
+    linear-gradient(var(--neon), var(--neon)) left top / 16px 2px no-repeat,
+    linear-gradient(var(--neon), var(--neon)) left top / 2px 16px no-repeat,
+    linear-gradient(var(--neon), var(--neon)) right top / 16px 2px no-repeat,
+    linear-gradient(var(--neon), var(--neon)) right top / 2px 16px no-repeat,
+    linear-gradient(var(--neon), var(--neon)) left bottom / 16px 2px no-repeat,
+    linear-gradient(var(--neon), var(--neon)) left bottom / 2px 16px no-repeat,
+    linear-gradient(var(--neon), var(--neon)) right bottom / 16px 2px no-repeat,
+    linear-gradient(var(--neon), var(--neon)) right bottom / 2px 16px no-repeat,
+    repeating-linear-gradient(0deg, rgba(95, 232, 255, 0.05) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, rgba(14, 28, 66, 0.9), rgba(6, 10, 30, 0.94));
+  box-shadow: 0 0 18px rgba(95, 232, 255, 0.15);
+}
+
+/* 実験方法・観察結果を開いた時: 枠がチカチカと点灯し、中身が上から走査されるように、ちらつきながら現れる */
+.rules[open] {
+  animation: hud-power-on 0.5s steps(1, end) both;
+}
+
+.rules[open] > :not(summary) {
+  animation:
+    hud-scan-in 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) 0.1s both,
+    hud-flicker 0.6s steps(1, end) 0.1s both;
+}
+
+@keyframes hud-power-on {
+  0% {
+    box-shadow: none;
+    border-color: rgba(95, 232, 255, 0.9);
+  }
+  15% {
+    box-shadow: 0 0 22px rgba(95, 232, 255, 0.6);
+  }
+  30% {
+    box-shadow: none;
+    border-color: rgba(95, 232, 255, 0.1);
+  }
+  45% {
+    box-shadow: 0 0 26px rgba(95, 232, 255, 0.7);
+    border-color: rgba(95, 232, 255, 0.9);
+  }
+  60% {
+    box-shadow: 0 0 8px rgba(95, 232, 255, 0.2);
+  }
+}
+
+@keyframes hud-scan-in {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes hud-flicker {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  20% {
+    opacity: 0.15;
+  }
+  32% {
+    opacity: 1;
+  }
+  44% {
+    opacity: 0.4;
+  }
+  56% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.75;
+  }
+  80% {
+    opacity: 1;
+  }
+}
+
+.rules summary {
+  cursor: pointer;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--neon);
+}
+
+.rules ul {
+  padding-left: 1.2em;
+  margin: 8px 0 0;
+  line-height: 1.7;
+}
+
+.rules p {
+  margin: 8px 0 0;
+  line-height: 1.8;
+}
+
+/* 観察記録: 番号付きの記録。番号は計器の等幅の文字 */
+.field-notes ol {
+  padding-left: 0;
+  margin: 8px 0 0;
+  list-style: none;
+  counter-reset: note;
+  line-height: 1.75;
+}
+
+.field-notes li {
+  counter-increment: note;
+  position: relative;
+  padding-left: 2.6em;
+  margin-top: 6px;
+}
+
+.field-notes li::before {
+  content: "#" counter(note, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--neon);
+  opacity: 0.8;
+}
+
+/* 遊び方の文: 1〜2 文ごとの行。色の名前は色、盤に出る見た目は水色、操作は太字、数は黄色 */
+.note-text p {
+  margin: 0;
+  line-height: 1.75;
+}
+
+.note-text p + p {
+  margin-top: 4px;
+}
+
+.tx-black,
+.tx-white {
+  font-weight: 700;
+}
+
+.tx-black {
+  color: var(--black-body);
+}
+
+.tx-white {
+  color: var(--white-body);
+}
+
+.tx-key {
+  color: var(--neon);
+}
+
+.tx-act {
+  font-weight: 800;
+  color: #fff;
+}
+
+.tx-num {
+  font-weight: 700;
+  color: var(--ally);
+}
+
+/* 項目の間と、見出しの区切り (手順 → 結果の判定) に、計器風の細い点線 */
+.field-notes .note-item + .note-item {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(95, 232, 255, 0.28);
+}
+
+.field-notes section + section {
+  margin-top: 14px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(95, 232, 255, 0.35);
+}
+
+/* 番号を付けない項目 (結果の判定) */
+.field-notes ol.plain li {
+  padding-left: 0;
+}
+
+.field-notes ol.plain li::before {
+  content: none;
+}
+
+/* PC など広い画面: スタート画面を広げ、項目の図を文の横に並べる */
+@media (min-width: 860px) {
+  .start {
+    max-width: 900px;
+  }
+
+  .purpose {
+    max-width: none;
+  }
+
+  .setup-panel {
+    max-width: none;
+  }
+
+  .note-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 24px;
+    align-items: start;
+  }
+
+  .note-item .note-figures {
+    margin-top: 2px;
+  }
+}
+
+/* 遊び方の図: 項目の下に、小さな培養槽を並べる */
+.note-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0 4px;
+}
+
+.note-figure {
+  width: 140px;
+  margin: 0;
+}
+
+.note-figure figcaption {
+  margin-top: 2px;
+  font-size: 11px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.notes-heading {
+  margin: 14px 0 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--neon);
+}
+
+.field-notes section:first-child .notes-heading {
+  margin-top: 6px;
+}
+
+.lib-word {
+  color: var(--ally);
+}
+
+.enemy-word {
+  color: var(--enemy);
+}
+
+.danger-word {
+  color: var(--danger);
+}
+
+/* ===== 終局の演出 (EndgameEffects.tsx / ResultPanel.tsx) ===== */
+
+.board-wrap {
+  position: relative;
+}
+
+/* 死に石の分解: 石の形からぶつぶつと粒に崩れて散らばり、小さくなって残る (そのあと相手の染み出しに覆われる) */
+.decompose-bit {
+  fill: var(--body);
+  stroke: var(--edge);
+  stroke-width: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: translate(var(--dx), var(--dy));
+  opacity: 0.75;
+  animation-name: decompose;
+  animation-timing-function: cubic-bezier(0.3, 0.7, 0.4, 1);
+  animation-fill-mode: backwards;
+}
+
+@keyframes decompose {
+  from {
+    transform: translate(0, 0) scale(3.2);
+    opacity: 1;
+  }
+  30% {
+    transform: translate(calc(var(--dx) * 0.2), calc(var(--dy) * 0.2)) scale(2);
+  }
+}
+
+/* 陣地を埋め尽くす粘液: 持ち主の石から近い順に滲み出し、ゆっくり脈打つ */
+/* 終局の陣地の粘液: 対局中の勢力と同じ液体 (.influence-pool)。段階ごとの輪郭が現れては次の段階と入れ替わり、最後の段階が残る */
+.influence-pool.territory-step {
+  animation:
+    seep-in 0.9s ease-out var(--step-in) backwards,
+    seep-out 0.6s ease-in var(--step-out) forwards;
+}
+
+.influence-pool.territory-step.final {
+  animation:
+    seep-in 0.9s ease-out var(--step-in) backwards,
+    seep 3.2s ease-in-out calc(var(--step-in) + 0.9s) infinite alternate;
+}
+
+.slime .blob.ooze {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation:
+    ooze 0.9s cubic-bezier(0.3, 1.5, 0.5, 1) backwards,
+    pulse 1.8s ease-in-out infinite alternate;
+}
+
+.slime path.ooze {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ooze 0.9s ease-out backwards;
+}
+
+@keyframes ooze {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(0.94);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+
+/* 計測: 盤を暗くし、合計マスを粒にしてシリンダーへ詰め込み、液面とレーザーで測る */
+.measurement {
+  pointer-events: none;
+}
+
+.measure-dim {
+  fill: rgba(4, 6, 20, 0.82);
+  animation: fade-in 0.6s ease-out backwards;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.tank {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: tank-in 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) backwards;
+}
+
+.tank.winner {
+  animation:
+    tank-in 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) backwards,
+    tank-glow 1.2s ease-in-out infinite alternate;
+}
+
+.tank.loser {
+  animation:
+    tank-in 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) backwards,
+    tank-dim 0.8s ease-out forwards;
+}
+
+@keyframes tank-in {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+}
+
+@keyframes tank-glow {
+  from {
+    filter: drop-shadow(0 0 4px var(--body));
+  }
+  to {
+    filter: drop-shadow(0 0 18px var(--body));
+  }
+}
+
+@keyframes tank-dim {
+  to {
+    opacity: 0.45;
+  }
+}
+
+.tank-glass {
+  fill: rgba(150, 220, 255, 0.06);
+  stroke: var(--neon);
+  stroke-opacity: 0.7;
+  stroke-width: 2;
+}
+
+.tank-liquid,
+.tank-komi {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation-name: fill-up;
+  animation-timing-function: linear;
+  animation-fill-mode: backwards;
+}
+
+.tank-liquid {
+  fill: var(--body);
+}
+
+/* コミの分: 同じ色の淡い層 */
+.tank-komi {
+  fill: color-mix(in srgb, var(--body) 35%, #fff);
+  opacity: 0.85;
+  animation-timing-function: ease-out;
+}
+
+@keyframes fill-up {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.tank-tick line {
+  stroke: var(--neon);
+  stroke-opacity: 0.6;
+  stroke-width: 1.2;
+}
+
+.tank-tick text {
+  fill: var(--neon);
+  opacity: 0.7;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  dominant-baseline: central;
+}
+
+.tank-value {
+  fill: var(--text);
+  font-size: 28px;
+  font-weight: 800;
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+.tank-unit {
+  font-size: 14px;
+  font-weight: 700;
+  fill: var(--muted);
+}
+
+.tank-detail {
+  fill: var(--muted);
+  font-size: 11px;
+  text-anchor: middle;
+}
+
+/* 盤の上のスライム・陣地・触覚・結界: 計測で配管へ吸い込まれるのに合わせて消える */
+.board.draining .slime-team,
+.board.draining .territory,
+.board.draining .stone-face,
+.board.draining .barrier,
+.board.draining .organ {
+  animation: drain-out var(--drain-duration) ease-in var(--drain-delay) forwards;
+}
+
+/* 触覚: 管は根元へ縮んで消え、先端の丸は配管へ吸い込まれる (吸い込まれる丸は EndgameEffects.tsx が描く) */
+.board.draining .feeler .feeler-stalk {
+  animation: stalk-retract calc(var(--drain-duration) * 0.6) ease-in var(--drain-delay) forwards;
+}
+
+.board.draining .feeler .feeler-tip {
+  animation: drain-out 0.01s linear var(--drain-delay) forwards;
+}
+
+/* 縮みきったら、揺れなどの動きごと触覚を消す。触覚の要素に直接書いた揺れのずらし (animation-delay) より優先する */
+.board.draining .feeler {
+  animation: drain-out 0.2s linear forwards;
+  animation-delay: calc(var(--drain-delay) + var(--drain-duration) * 0.6) !important;
+}
+
+@keyframes stalk-retract {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 1;
+  }
+}
+
+/* 吸い込まれる触覚の先端の丸と、シリンダーに浮かぶ部品: 味方は黄色、敵はピンク */
+.tip-dot,
+.part-tip {
+  fill: #fff;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.drain-tip.ally,
+.tank-part.ally {
+  color: var(--ally);
+}
+
+.drain-tip.enemy,
+.tank-part.enemy {
+  color: var(--enemy);
+}
+
+.drain-tip {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: drain-in;
+  animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.5);
+  animation-fill-mode: both;
+}
+
+@keyframes drain-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* 配管: 盤の下の吸い込み口から盤の横を上り、シリンダーの上の口へ。金属の筒に継ぎ手、中を液の粒が流れる */
+.pipe {
+  animation: fade-in 0.5s ease-out backwards;
+}
+
+.pipe-shell,
+.pipe-band,
+.pipe-gloss,
+.pipe-liquid,
+.pipe-sheen {
+  fill: none;
+  stroke-linejoin: round;
+}
+
+/* 筒の外側 (暗い金属と、ネオンの照り返し) */
+.pipe-shell {
+  stroke: #0b1530;
+  stroke-width: 13;
+  filter: drop-shadow(0 0 2px rgba(95, 232, 255, 0.55));
+}
+
+/* 筒の胴: 光が当たる帯 */
+.pipe-band {
+  stroke: #2a3f68;
+  stroke-width: 8;
+}
+
+/* 中の液: pathLength = 1 の破線で、吸い込み口から満ちていき (dashoffset 1 → 0)、最後にノズルの側へ抜ける (0 → -1) */
+.pipe-liquid {
+  stroke: var(--body);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation-name: pipe-fill, pipe-empty;
+  animation-timing-function: ease-in-out, ease-in;
+  animation-fill-mode: both, forwards;
+}
+
+@keyframes pipe-fill {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pipe-empty {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -1;
+  }
+}
+
+/* 液の表面の光の筋: 満ちている間だけ、流れる向きへ動く */
+.pipe-sheen {
+  stroke: color-mix(in srgb, var(--body) 45%, #fff);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 10 22;
+  opacity: 0;
+  animation-name: pipe-stream, pipe-flowing;
+  animation-timing-function: linear, step-end;
+  animation-iteration-count: infinite, 1;
+}
+
+@keyframes pipe-stream {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+/* 流れている間だけ見せる */
+@keyframes pipe-flowing {
+  0%,
+  99% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 筒の上の細いハイライト */
+.pipe-gloss {
+  stroke: rgba(190, 225, 255, 0.35);
+  stroke-width: 1.5;
+}
+
+/* 継ぎ手と口 */
+.pipe-flange,
+.pipe-mouth {
+  fill: #33496f;
+  stroke: #0b1530;
+  stroke-width: 1.2;
+}
+
+/* しずくの体とつや */
+.drop-body {
+  fill: var(--body);
+  stroke: var(--edge);
+  stroke-width: 1;
+}
+
+.drop-shine {
+  fill: #fff;
+  opacity: 0.55;
+}
+
+/* 吸い込み: 生命体が吸い込み口へ向かって伸びながら入っていく */
+.drain-blob {
+  animation-name: drain-in;
+  animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.5);
+  animation-fill-mode: both;
+}
+
+@keyframes drain-in {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  60% {
+    transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5)) scale(0.85);
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.35);
+    opacity: 0;
+  }
+}
+
+/* 粘り気のある液の柱: 口から下へ伸び (pour)、垂れ終わると細くなってちぎれ落ちる (break) */
+.stream-pour {
+  transform-box: fill-box;
+  transform-origin: top;
+  animation-name: stream-pour;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.9, 0.7);
+  animation-fill-mode: both;
+}
+
+@keyframes stream-pour {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.stream-break {
+  transform-box: fill-box;
+  transform-origin: top;
+  animation: stream-break 0.6s ease-in forwards;
+}
+
+@keyframes stream-break {
+  40% {
+    transform: scaleX(0.35);
+  }
+  to {
+    transform: scaleX(0.15) translateY(60%);
+    opacity: 0;
+  }
+}
+
+/* 柱の太さがゆらゆら揺れる */
+.stream-core {
+  stroke: var(--body);
+  stroke-linecap: round;
+  stroke-width: var(--stream-width);
+  animation: stream-wobble 0.55s ease-in-out infinite alternate;
+}
+
+@keyframes stream-wobble {
+  from {
+    stroke-width: calc(var(--stream-width) * 0.8);
+  }
+  to {
+    stroke-width: calc(var(--stream-width) * 1.12);
+  }
+}
+
+/* 柱を伝って下りる、こぶになった塊 */
+.stream-globs {
+  stroke: var(--body);
+  stroke-linecap: round;
+  stroke-width: var(--stream-width);
+  stroke-dasharray: 2 12;
+  animation: stream-slide 0.7s linear infinite;
+}
+
+/* 柱を伝って下りる細かな粒: 柱より明るい小さな点が、速さを変えて流れる */
+.stream-specks {
+  stroke: color-mix(in srgb, var(--body) 55%, #fff);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 7;
+  animation: stream-slide 0.45s linear infinite;
+}
+
+.stream-specks.slow {
+  stroke-dasharray: 0.1 9;
+  animation-duration: 0.6s;
+}
+
+@keyframes stream-slide {
+  to {
+    stroke-dashoffset: -42;
+  }
+}
+
+.stream-gloss {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+/* 液面に積もって盛り上がる所: 垂れている間だけ見え、ぷるぷる揺れる */
+.stream-pile {
+  fill: var(--body);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation-name: pipe-flowing, pile-jiggle;
+  animation-timing-function: step-end, ease-in-out;
+  animation-iteration-count: 1, infinite;
+  animation-direction: normal, alternate;
+}
+
+@keyframes pile-jiggle {
+  from {
+    transform: scale(1, 0.8);
+  }
+  to {
+    transform: scale(0.9, 1.25);
+  }
+}
+
+/* 液面の波: 液面と一緒に上がり、横に流れ続ける */
+.tank-surface {
+  transform-box: view-box;
+  animation-name: surface-rise;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+@keyframes surface-rise {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(var(--rise));
+  }
+}
+
+.tank-wave {
+  fill: var(--body);
+  animation: wave-flow 1.6s linear infinite;
+}
+
+@keyframes wave-flow {
+  to {
+    transform: translateX(var(--wave-length));
+  }
+}
+
+/* 液に浮かぶ部品 (臓器と眼): 上の口から落ちて沈み、液の中でゆらゆら浮く */
+.tank-part {
+  animation-name: part-fall, part-float;
+  animation-duration: 1.3s, 2.4s;
+  animation-timing-function: linear, ease-in-out;
+  animation-iteration-count: 1, infinite;
+  animation-direction: normal, alternate;
+  animation-fill-mode: both, none;
+}
+
+/* 部品の落下: 加速しながら液面に飛び込み、勢いで浮かぶ位置より深く沈んでから、ゆっくり浮き上がって落ち着く */
+@keyframes part-fall {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.5, 0, 1, 1);
+  }
+  5% {
+    opacity: 1;
+  }
+  32% {
+    transform: translateY(calc(var(--fall) - 6px));
+    animation-timing-function: cubic-bezier(0.1, 0.6, 0.3, 1);
+  }
+  55% {
+    transform: translateY(calc(var(--fall) + var(--plunge)));
+    animation-timing-function: cubic-bezier(0.4, 0, 0.3, 1);
+  }
+  100% {
+    transform: translateY(var(--fall));
+  }
+}
+
+/* 浮かんだ部品が、液面が上がるのに合わせて、シリンダー全体に散らばった位置へ漂っていく */
+.tank-part-drift {
+  animation-name: part-drift;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
+}
+
+@keyframes part-drift {
+  to {
+    transform: translate(var(--drift-x), var(--drift-y));
+  }
+}
+
+/* 触覚の紐の部品: 落ちながらくるくる回り、液の中では回ったまま */
+.part-tentacle {
+  animation: part-spin 1.3s cubic-bezier(0.2, 0.7, 0.4, 1) both;
+}
+
+@keyframes part-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(var(--spin));
+  }
+}
+
+.part-stalk {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+@keyframes part-float {
+  from {
+    transform: translateY(var(--fall));
+  }
+  to {
+    transform: translateY(calc(var(--fall) - 4px));
+  }
+}
+
+.part-flesh {
+  fill: #c8336a;
+  stroke: #6e0f33;
+  stroke-width: 1.2;
+}
+
+.part-lobe {
+  fill: #8f1c48;
+}
+
+/* 計測のレーザー: 下から、高い方の液面まで走って消える */
+.scan-laser {
+  stroke: #ff4f79;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px #ff4f79);
+  animation-name: scan-up;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+
+@keyframes scan-up {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(var(--scan-height));
+    opacity: 0;
+  }
+}
+
+/* 結果のパネル: 測り終わってから、盤の下寄りに開く */
+.result-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 1.5%;
+  width: min(92%, 380px);
+  transform: translateX(-50%);
+  padding: 6px 12px 10px;
+  text-align: center;
+  animation: panel-in 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) var(--panel-delay) backwards;
+}
+
+/* スマホ幅では結果のパネルを盤に重ねず、盤の下に出す (ボタンが 2 段になって盤の数値を隠すので) */
+@media (max-width: 480px) {
+  .result-panel {
+    position: static;
+    width: 100%;
+    margin: 10px 0 0;
+    transform: none;
+    animation-name: panel-in-below;
+  }
+}
+
+@keyframes panel-in-below {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+}
+
+.result-label {
+  margin: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.3em;
+  color: var(--neon);
+}
+
+.result-headline {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+}
+
+.result-headline.black {
+  color: var(--black-body);
+}
+
+.result-headline.white {
+  color: var(--white-body);
+}
+
+.result-margin {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* 結果のパネルのボタンは、4 つが 1 列に並んで盤の数値を隠さないよう小さくする */
+.result-actions button,
+.result-actions .post-button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* 結界: 敵に取られない呼吸点に、触覚が張る蜘蛛の巣。巣を保つため、結界の触覚は揺らさない */
+.feeler.sealed {
+  animation: none;
+}
+
+/* 切断点へ伸びる触覚: となりの石の触覚とつながろうと、太く、小刻みに震え、先端が脈打つ */
+.feeler.straining {
+  animation: strain 0.32s ease-in-out infinite alternate;
+}
+
+.feeler.straining .feeler-stalk {
+  stroke-width: 4.5;
+}
+
+.feeler.straining .feeler-tip {
+  animation: strain-tip 0.32s ease-in-out infinite alternate;
+}
+
+@keyframes strain {
+  from {
+    transform: rotate(-3deg);
+  }
+  to {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes strain-tip {
+  to {
+    transform: scale(1.35);
+  }
+}
+
+.barrier {
+  pointer-events: none;
+}
+
+.barrier.ally {
+  color: var(--ally);
+}
+
+.barrier.enemy {
+  color: var(--enemy);
+}
+
+/* 結界の網目: 石からあらゆる向きに伸びた触覚が交差して中心の丸を支える。伸びた後は順に脈打つ */
+.web-vein {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-width: var(--vein-width);
+  animation-name: web-grow, vein-pulse;
+  animation-timing-function: ease-out, ease-in-out;
+  animation-fill-mode: backwards, none;
+  animation-iteration-count: 1, infinite;
+}
+
+@keyframes vein-pulse {
+  50% {
+    stroke-width: calc(var(--vein-width) * 1.4);
+  }
+}
+
+@keyframes node-pulse {
+  50% {
+    transform: scale(1.35);
+  }
+}
+
+/* 結界の中心の口: 網目が届いてから現れる */
+.eye-core {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: web-pop 0.4s ease-out backwards;
+}
+
+
+/* 壁から生える触手: 壁の根元が膨らんでから、中心の丸の縁まで伸びる */
+.wall-feeler-stalk {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-width: 3;
+  animation: web-grow 0.9s cubic-bezier(0.33, 0, 0.15, 1) 0.2s backwards;
+}
+
+.wall-feeler-root {
+  fill: currentColor;
+  animation: web-pop 0.4s ease-out backwards;
+}
+
+@keyframes web-grow {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes web-pop {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 未確定・欠け目: 本当の眼に決まっていない結界。網目の触覚がたるみ、半分ほどは丸まで届かずに垂れて、ゆらゆら漂う */
+.barrier.torn .web-vein {
+  stroke-opacity: 0.6;
+  transform-box: fill-box;
+  transform-origin: 0 0;
+  animation-name: web-grow, unravel-drift;
+  animation-duration: 0.6s, 3.4s;
+  animation-timing-function: ease-out, ease-in-out;
+  animation-direction: normal, alternate;
+}
+
+@keyframes unravel-drift {
+  from {
+    transform: rotate(-5deg) translateY(-0.5px);
+  }
+  to {
+    transform: rotate(5deg) translateY(1.5px);
+  }
+}
+
+/* 攻め合い: 先が捻れて絡んだ触覚が、HP の多い側へ引っ張られて揺れる。同じ HP なら小刻みに震える */
+.twist-tug {
+  animation: rope-tug 0.9s ease-in-out infinite alternate;
+}
+
+.twist-tug.even {
+  animation: rope-shiver 0.25s ease-in-out infinite alternate;
+}
+
+@keyframes rope-tug {
+  to {
+    transform: translate(var(--tug-x), var(--tug-y));
+  }
+}
+
+@keyframes rope-shiver {
+  from {
+    transform: translate(-0.6px, 0.4px);
+  }
+  to {
+    transform: translate(0.6px, -0.4px);
+  }
+}
+
+/* 勢力: スライムから染み出した半透明の水たまり (輪郭は InfluenceLayer.tsx の等高線)。ゆっくり濃くなったり薄くなったりする。
+   盤の下に見込みの合計 */
+.influence {
+  pointer-events: none;
+}
+
+.influence-pool {
+  fill: var(--body);
+  stroke: var(--body);
+  stroke-width: 1.5;
+  stroke-opacity: 0.6;
+  opacity: 0.22;
+  animation: seep 3.2s ease-in-out infinite alternate;
+}
+
+/* 盤面が変わった時: 前の液体はゆっくり薄れて消え、新しい液体はにじみ出て広がる */
+.influence-layer {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.influence-layer.fading {
+  animation: seep-out 1.4s ease-in var(--seep-delay) forwards;
+}
+
+.influence-layer.rising {
+  animation: seep-in 1.6s ease-out var(--seep-delay) backwards;
+}
+
+@keyframes seep-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes seep-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes seep {
+  to {
+    opacity: 0.3;
+  }
+}
+
+/* 二眼の臓器: 現れた時に膨らんで育ち、心臓のように 2 拍ずつ脈打つ。管は触覚の根元を通って結界へ伸び、脈に合わせて体液が流れる */
+.organ {
+  pointer-events: none;
+}
+
+.organ-beat {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation:
+    organ-grow 1.4s cubic-bezier(0.3, 1.4, 0.5, 1) 0.2s backwards,
+    organ-heartbeat 1.2s ease-in-out 1.6s infinite;
+}
+
+.organ-flesh {
+  fill: #c8336a;
+  fill-opacity: 0.9;
+  stroke: #6e0f33;
+  stroke-width: 1.4;
+}
+
+.organ-lobe {
+  fill: #8f1c48;
+  fill-opacity: 0.85;
+}
+
+.organ-vein {
+  fill: none;
+  stroke: #4f0822;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.organ-shine {
+  fill: #fff;
+  fill-opacity: 0.45;
+}
+
+.vessel-wall,
+.vessel-flow {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.vessel-wall {
+  stroke: #a3234f;
+  stroke-opacity: 0.9;
+  stroke-width: var(--vessel-width, 4.5px);
+  stroke-dasharray: 1;
+  animation:
+    web-grow 0.9s ease-out var(--vessel-delay) backwards,
+    vessel-beat 1.2s ease-in-out 1.6s infinite;
+}
+
+.vessel-flow {
+  stroke: #ff8db4;
+  stroke-width: 1.5;
+  stroke-dasharray: 0.06 0.14;
+  animation:
+    web-pop 0.4s ease-out calc(var(--vessel-delay) + 0.9s) backwards,
+    vessel-flow 1.2s linear infinite;
+}
+
+@keyframes organ-grow {
+  from {
+    transform: scale(0);
+  }
+}
+
+@keyframes organ-heartbeat {
+  0%,
+  45%,
+  100% {
+    transform: scale(1);
+  }
+  12% {
+    transform: scale(1.18);
+  }
+  24% {
+    transform: scale(0.97);
+  }
+  34% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes vessel-beat {
+  0%,
+  45%,
+  100% {
+    stroke-width: var(--vessel-width, 4.5px);
+  }
+  12% {
+    stroke-width: calc(var(--vessel-width, 4.5px) * 1.35);
+  }
+  34% {
+    stroke-width: calc(var(--vessel-width, 4.5px) * 1.2);
+  }
+}
+
+/* 根元の枝分かれ: 本管より細い枝が、本管が伸びきってから広がる */
+.vessel-twig {
+  --vessel-width: 2px;
+}
+
+.vessel-twig .vessel-wall {
+  animation:
+    web-grow 0.4s ease-out calc(var(--vessel-delay) + 0.9s) backwards,
+    vessel-beat 1.2s ease-in-out 1.6s infinite;
+}
+
+/* 管と触覚の継ぎ目: 触覚の根元のふくらみ */
+.vessel-joint {
+  fill: #a3234f;
+  animation: web-pop 0.3s ease-out calc(var(--vessel-delay) + 1.2s) backwards;
+}
+
+@keyframes vessel-flow {
+  to {
+    stroke-dashoffset: -0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-line,
+  .log-cursor,
+  .slime .blob.ooze,
+  .decompose-bit,
+  .slime path.ooze,
+  .measure-dim,
+  .tank,
+  .tank.winner,
+  .tank.loser,
+  .tank-liquid,
+  .tank-komi,
+  .tank-surface,
+  .stream-core,
+  .stream-globs,
+  .stream-specks,
+  .tank-wave,
+  .pipe,
+  .pipe-liquid,
+  .pipe-sheen,
+  .board.draining .slime-team,
+  .board.draining .territory,
+  .board.draining .stone-face,
+  .board.draining .barrier,
+  .board.draining .organ,
+  .board.draining .feeler,
+  .board.draining .feeler .feeler-stalk,
+  .board.draining .feeler .feeler-tip,
+  .result-panel,
+  .web-vein,
+  .eye-core,
+  .mouth-open,
+  .wall-feeler-stalk,
+  .wall-feeler-root,
+  .organ-beat,
+  .influence-pool,
+  .territory-step,
+  .territory-step.final,
+  .influence-layer.rising,
+  .twist-tug,
+  .twist-tug.even,
+  .barrier.torn .web-vein,
+  .vessel-wall,
+  .vessel-flow,
+  .vessel-joint {
+    animation: none;
+  }
+
+  .stream-pour,
+  .stream-break,
+  .stream-pile,
+  .drain-blob,
+  .drain-tip,
+  .scan-laser {
+    display: none;
+  }
+
+  .tank-part {
+    animation: none;
+    transform: translateY(var(--fall));
+  }
+
+  .rules[open],
+  .rules[open] > :not(summary) {
+    animation: none;
+  }
+
+  .part-tentacle {
+    animation: none;
+  }
+
+  .tank-part-drift {
+    animation: none;
+    transform: translate(var(--drift-x), var(--drift-y));
+  }
+
+  .influence-layer.fading {
+    display: none;
+  }
+
+  .territory-step:not(.final) {
+    display: none;
+  }
+}
+
+/* X にポストの後の案内 (画像をコピーした / 保存した) */
+
+/* X にポストを押した後: 画面全体を暗くしてほかを押せなくし、用意している間はくるくる回る印、できたらモーダル */
+.post-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(2, 5, 16, 0.88);
+}
+
+.post-busy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 32px 14px;
+  border: 1px solid rgba(95, 232, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(2, 6, 18, 0.96);
+  box-shadow: 0 0 18px rgba(95, 232, 255, 0.15);
+}
+
+.post-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(95, 232, 255, 0.2);
+  border-top-color: var(--neon);
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(95, 232, 255, 0.35);
+  animation: post-spin 0.8s linear infinite;
+}
+
+@keyframes post-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.post-wait {
+  margin: 12px 0 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.2em;
+  color: var(--neon);
+}
+
+/* モーダルは結果のパネルと同じ計器のパネル (四隅の括弧と走査線) */
+.post-modal {
+  box-sizing: border-box;
+  width: min(360px, 100%);
+  padding: 18px 20px 16px;
+  text-align: center;
+  animation: hud-power-on 0.5s steps(1, end) both;
+}
+
+.post-modal-title {
+  margin: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 15px;
+  letter-spacing: 0.15em;
+  color: var(--neon);
+}
+
+.post-modal-body {
+  margin: 10px 0 16px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.post-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
